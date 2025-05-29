@@ -5,6 +5,7 @@ import { RadioInputMethod } from "./components/RadioInputMethod";
 import { ImageInput } from "./components/ImageInput";
 import { ExtractedTextArea } from "./components/ExtractedTextArea";
 import { LoadingSpinner } from "./components/LoadingSpinner";
+import type { PreSignedUrlResponse, TextFromImageResponse, ErrorResponse } from '../types/api';
 
 export default function ImageText() {
   const [inputMethod, setInputMethod] = useState<"upload" | "url">("upload");
@@ -30,30 +31,28 @@ export default function ImageText() {
     setImageUrl(e.target.value);
   };
 
-  const getPreSignedUrl = async (fileName: String): Promise<any> => {
+  const getPreSignedUrl = async (fileName: string): Promise<PreSignedUrlResponse> => {
     try {
-      const res = await fetch(`http://localhost:8080/s3/pre-signed-url?filename=${fileName}`, {
+      const res = await fetch('/api/get-presigned-url', {
         method: 'POST',
         headers: {
-          'Authorization': 'Basic ' + btoa('user:password'),
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ fileName }),
       });
-
       if (!res.ok) {
-        throw new Error(`Server responded with status ${res.status}`);
+        const errorData: ErrorResponse = await res.json();
+        throw new Error(errorData.error || `Server responded with status ${res.status}`);
       }
-
-      const data = await res.json();
-      console.log(data);
-      return data
+      return res.json();
     } catch (error) {
       console.error('Fetch error:', error);
-      return error
+      throw new Error('Failed to get pre-signed URL');
     }
   }
 
   const uploadImage = async (fileOrBlob: File | Blob, filename: string): Promise<string> => {
-    const { fileId, url } = await getPreSignedUrl(filename);
+    const { fileId, url }: PreSignedUrlResponse = await getPreSignedUrl(filename);
     const upload = await fetch(url, {
       method: 'PUT',
       body: fileOrBlob,
@@ -65,17 +64,26 @@ export default function ImageText() {
   };
 
   const extractText = async (fileId: string): Promise<string> => {
-    const textResponse = await fetch(`http://localhost:8080/api/extract/text-from-image?fileId=${fileId}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Basic ' + btoa('user:password'),
-      },
-    });
-    const text = await textResponse.json();
-    return text.text;
+    try {
+      const res = await fetch('/api/extract-text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fileId }),
+      });
+      if (!res.ok) {
+        throw new Error(`Server responded with status ${res.status}`);
+      }
+      const data: TextFromImageResponse = await res.json();
+      return data.text;
+    } catch (error) {
+      console.error('Fetch error:', error);
+      return "Something went wrong while extracting text, please try again later.";
+    }
   }
 
-  const onSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  const onSubmit = async () => {
     setIsLoading(true);
     try {
       if (image && image.size > 0) {
@@ -93,8 +101,8 @@ export default function ImageText() {
       } else {
         alert('Something went wrong. Please try again.');
       }
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
       alert('An error occurred during processing.');
     } finally {
       setIsLoading(false);
