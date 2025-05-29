@@ -2,6 +2,8 @@
 
 A modern Next.js web application for extracting text from images using a backend API and S3 storage. Built with TypeScript, React, and best practices for security and maintainability.
 
+<img width="596" alt="image" src="https://github.com/user-attachments/assets/df4296f1-93e4-4b41-b3b1-bcfeb6d2e315" />
+
 ## Features
 
 - Upload images or provide an image URL to extract text instantly
